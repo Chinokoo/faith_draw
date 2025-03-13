@@ -11,6 +11,7 @@ class DrawingPage extends StatefulWidget {
   State<DrawingPage> createState() => _DrawingPageState();
 }
 
+//list of suggested drawings a kid should draw
 List<String> drawlist = [
   "Moses and his rode",
   "Adam and eve in the garden",
@@ -26,15 +27,18 @@ List<String> drawlist = [
   "moses and the burning bush",
 ];
 
+// getting a randow drawing string
 Random _random = Random();
 String randomDrawString = "";
 
 class _DrawingPageState extends State<DrawingPage> {
+  //drawing points
   List<Stroke> _strokes = [];
   List<Stroke> _redoStrokes = [];
   List<Offset> _currentPoints = [];
   Color _selectedColor = const Color.fromRGBO(0, 0, 0, 1);
   double _brushSize = 4.0;
+  //for saving to hive
   late Box<List<Stroke>> _drawingBox;
 
   @override
@@ -50,9 +54,14 @@ class _DrawingPageState extends State<DrawingPage> {
     super.dispose();
   }
 
+  //intialising the hive box
+  _initializeBox() {
+    _drawingBox = Hive.box<List<Stroke>>("drawings");
+  }
+
   //save function
 
-  //show dialog function
+  //show dialog function to save the drawing
   void _showSaveDialog() {
     final TextEditingController _controller = TextEditingController(
       text: randomDrawString,
@@ -101,10 +110,7 @@ class _DrawingPageState extends State<DrawingPage> {
     );
   }
 
-  _initializeBox() {
-    _drawingBox = Hive.box<List<Stroke>>("drawings");
-  }
-
+  //the drawing page
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -193,6 +199,7 @@ class _DrawingPageState extends State<DrawingPage> {
     );
   }
 
+  //the tool bar behind the page
   Widget _buildToolBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -283,6 +290,7 @@ class _DrawingPageState extends State<DrawingPage> {
     );
   }
 
+  //the color buttons
   Widget _buildColorButton(Color color) {
     return GestureDetector(
       onTap: () {
@@ -307,6 +315,7 @@ class _DrawingPageState extends State<DrawingPage> {
   }
 }
 
+//the painting canvas
 class DrawPainter extends CustomPainter {
   final List<Stroke> strokes;
   final List<Offset> currentPoints;
