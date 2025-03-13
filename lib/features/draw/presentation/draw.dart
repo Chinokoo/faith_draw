@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:draw_app/features/draw/models/stroke.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hive/hive.dart';
 
 class DrawingPage extends StatefulWidget {
   const DrawingPage({super.key});
@@ -32,13 +33,76 @@ class _DrawingPageState extends State<DrawingPage> {
   List<Stroke> _strokes = [];
   List<Stroke> _redoStrokes = [];
   List<Offset> _currentPoints = [];
-  Color _selectedColor = Colors.black;
+  Color _selectedColor = const Color.fromRGBO(0, 0, 0, 1);
   double _brushSize = 4.0;
+  late Box<List<Stroke>> _drawingBox;
 
   @override
   void initState() {
+    _initializeBox();
     super.initState();
     randomDrawString = drawlist[_random.nextInt(drawlist.length)];
+  }
+
+  @override
+  void dispose() {
+    Hive.close();
+    super.dispose();
+  }
+
+  //save function
+
+  //show dialog function
+  void _showSaveDialog() {
+    final TextEditingController _controller = TextEditingController(
+      text: randomDrawString,
+    );
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color.fromARGB(255, 151, 14, 60),
+          title: Center(
+            child: const Text(
+              "Save Drawing",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          content: TextField(
+            controller: _controller,
+            decoration: const InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.white, width: 2),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.white),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text("Cancel", style: TextStyle(color: Colors.white)),
+            ),
+            TextButton(
+              onPressed: () {},
+              child: Text("Save", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  _initializeBox() {
+    _drawingBox = Hive.box<List<Stroke>>("drawings");
   }
 
   @override
@@ -61,7 +125,7 @@ class _DrawingPageState extends State<DrawingPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  "Draw:",
+                  "Draw: ",
                   style: TextStyle(fontSize: 20, color: Colors.black),
                 ),
                 Text(
@@ -115,6 +179,17 @@ class _DrawingPageState extends State<DrawingPage> {
           _buildToolBar(),
         ],
       ),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: 40.0),
+        child: FloatingActionButton(
+          onPressed: () {
+            _showSaveDialog();
+          },
+          tooltip: "save drawing",
+          child: Icon(Icons.download),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
     );
   }
 
@@ -252,13 +327,19 @@ class DrawPainter extends CustomPainter {
     for (final stroke in strokes) {
       final paint =
           Paint()
-            ..color = stroke.color
+            ..color = stroke.strokeColor
             ..strokeCap = StrokeCap.round
             ..strokeWidth = stroke.brushSize;
-      for (int i = 0; i < stroke.points.length - 1; i++) {
-        if (stroke.points[i] != Offset.zero &&
-            stroke.points[i + 1] != Offset.zero) {
-          canvas.drawLine(stroke.points[i], stroke.points[i + 1], paint);
+
+      //final points = stroke.offsetPoints; can also use this but nahhhhh!
+      for (int i = 0; i < stroke.offsetPoints.length - 1; i++) {
+        if (stroke.offsetPoints[i] != Offset.zero &&
+            stroke.offsetPoints[i + 1] != Offset.zero) {
+          canvas.drawLine(
+            stroke.offsetPoints[i],
+            stroke.offsetPoints[i + 1],
+            paint,
+          );
         }
       }
     }
