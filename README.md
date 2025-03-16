@@ -42,7 +42,7 @@ The application follows a feature-based architecture:
 - Clone the repository
 
 ```
-git clone https://github.com/yourusername/draw_app.git
+git clone https://github.com/Chinokoo/faith_draw.git
 ```
 
 - Navigate to the project directory: cd draw_app
