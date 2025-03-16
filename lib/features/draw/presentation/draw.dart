@@ -1,7 +1,8 @@
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:draw_app/features/draw/models/stroke.dart';
+import 'package:draw_app/features/draw/utils/thumbnail_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 
 class DrawingPage extends StatefulWidget {
@@ -14,10 +15,13 @@ class DrawingPage extends StatefulWidget {
 //list of suggested drawings a kid should draw
 List<String> drawlist = [
   "Moses and his rode",
-  "Adam and eve in the garden",
+  "Adam and eve in the garden of eden",
   "Samson fighting a lion",
   "Daniel in the lions den",
   "Noah and the ark",
+  "Abraham and Issac",
+  "Jonah and the big fish",
+  "Joseph, mary and baby jesus",
   "david and goliath",
   "Jesus on the cross",
   "Jesus and his disciples",
@@ -38,33 +42,82 @@ class _DrawingPageState extends State<DrawingPage> {
   List<Offset> _currentPoints = [];
   Color _selectedColor = const Color.fromRGBO(0, 0, 0, 1);
   double _brushSize = 4.0;
+  String? _drawingName;
   //for saving to hive
-  late Box<List<Stroke>> _drawingBox;
+  late Box _drawingBox;
+
+  //initialising the hive box
+  Future<void> _initializeHive() async {
+    // Check if the box is already open
+    if (Hive.isBoxOpen("drawings")) {
+      _drawingBox = Hive.box("drawings");
+    } else {
+      // Open the box if it's not already open
+      _drawingBox = await Hive.openBox("drawings");
+    }
+    final name = ModalRoute.of(context)?.settings.arguments as String?;
+    if (mounted) {
+      if (name != null) {
+        final name = ModalRoute.of(context)?.settings.arguments as String?;
+
+        final rawData = _drawingBox.get(name);
+        print("Raw Data type: ${rawData.runtimeType}");
+        //print(_drawingBox.get(name));
+        setState(() {
+          _drawingName = name;
+          _strokes =
+              (rawData?['strokes'] as List<dynamic>?)?.cast<Stroke>() ?? [];
+        });
+        print(name);
+      }
+    }
+  }
 
   @override
   void initState() {
-    _initializeBox();
     super.initState();
+
+    //Initialize Box
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeHive();
+    });
     randomDrawString = drawlist[_random.nextInt(drawlist.length)];
+    setState(() {});
   }
 
   @override
   void dispose() {
-    Hive.close();
+    //Hive.close();
+    //_drawingBox.close();
     super.dispose();
   }
 
-  //intialising the hive box
-  _initializeBox() {
-    _drawingBox = Hive.box<List<Stroke>>("drawings");
-  }
-
   //save function
+  Future<void> _saveDrawing(String name) async {
+    final Uint8List thumbnail = await createThumbnail(_strokes, 200, 200);
+
+    await _drawingBox.put(name, {'strokes': _strokes, 'thumbnail': thumbnail});
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.green,
+          content: Text(
+            "Drawing $name is saved!",
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+    setState(() {});
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, "/home");
+    }
+  }
 
   //show dialog function to save the drawing
   void _showSaveDialog() {
     final TextEditingController _controller = TextEditingController(
-      text: randomDrawString,
+      text: _drawingName ?? randomDrawString,
     );
     showDialog(
       context: context,
@@ -101,7 +154,13 @@ class _DrawingPageState extends State<DrawingPage> {
               child: Text("Cancel", style: TextStyle(color: Colors.white)),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () {
+                final name = _controller.text.trim();
+                if (name.isNotEmpty) {
+                  _saveDrawing(name);
+                  Navigator.pop(context);
+                }
+              },
               child: Text("Save", style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -115,8 +174,8 @@ class _DrawingPageState extends State<DrawingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "Draw your Picture",
+        title: Text(
+          _drawingName ?? "Draw your Picture",
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
         ),
         centerTitle: true,
@@ -127,16 +186,15 @@ class _DrawingPageState extends State<DrawingPage> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Wrap(
+              alignment: WrapAlignment.center,
               children: [
                 Text(
                   "Draw: ",
                   style: TextStyle(fontSize: 20, color: Colors.black),
                 ),
                 Text(
-                  randomDrawString.toUpperCase(),
-
+                  _drawingName ?? randomDrawString.toUpperCase(),
                   style: TextStyle(
                     fontSize: 20,
 
@@ -161,7 +219,7 @@ class _DrawingPageState extends State<DrawingPage> {
               onPanEnd: (details) {
                 setState(() {
                   _strokes.add(
-                    Stroke(
+                    Stroke.fromOffsets(
                       points: List.from(_currentPoints),
                       color: _selectedColor,
                       brushSize: _brushSize,
@@ -236,7 +294,6 @@ class _DrawingPageState extends State<DrawingPage> {
             ),
           ),
           DropdownButton(
-            //dropdownColor: const Color.fromARGB(255, 151, 14, 60),
             value: _brushSize,
             dropdownColor: Colors.grey[100],
             items: [
